@@ -1,3 +1,5 @@
+import HesapMenu from "./components/HesapMenu";
+
 const rooms = [
   {
     title: "Film Gecesi 🍿",
@@ -96,12 +98,7 @@ export default function Home() {
             <button className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
               🌙
             </button>
-            <button className="hidden rounded-xl border border-white/15 px-4 py-2 text-sm sm:block">
-              Giriş Yap
-            </button>
-            <button className="rounded-xl bg-gradient-to-r from-pink-500 to-fuchsia-600 px-4 py-2 text-sm font-bold shadow-lg shadow-pink-500/20">
-              Ücretsiz Başla
-            </button>
+            <HesapMenu />
           </div>
         </div>
       </nav>
