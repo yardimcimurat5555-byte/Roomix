@@ -27,22 +27,25 @@ export default function OdaOlusturPage() {
 
     const davetKodu = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
 
-    const { error } = await supabase.from("rooms").insert({
-      owner_id: userData.user.id,
-      name: odaAdi.trim(),
-      description: aciklama.trim(),
-      is_public: herkeseAcik,
-      invite_code: davetKodu,
-    });
+    const { data, error } = await supabase
+      .from("rooms")
+      .insert({
+        owner_id: userData.user.id,
+        name: odaAdi.trim(),
+        description: aciklama.trim(),
+        is_public: herkeseAcik,
+        invite_code: davetKodu,
+      })
+      .select("id")
+      .single();
 
-    if (error) {
+    if (error || !data) {
       setMesaj("Oda oluşturulamadı. Lütfen tekrar dene.");
       setYukleniyor(false);
       return;
     }
 
-    setMesaj("Odan başarıyla oluşturuldu! ✓");
-    setYukleniyor(false);
+    window.location.href = `/oda/${data.id}`;
   }
 
   return (
