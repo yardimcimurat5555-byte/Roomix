@@ -128,9 +128,9 @@ export default function Home() {
               </p>
 
               <div className="mt-8 flex flex-wrap gap-4">
-                <button className="rounded-2xl bg-gradient-to-r from-pink-500 to-fuchsia-600 px-7 py-4 font-bold shadow-xl shadow-pink-500/20">
+                <a href="/oda-olustur" className="rounded-2xl bg-gradient-to-r from-pink-500 to-fuchsia-600 px-7 py-4 font-bold shadow-xl shadow-pink-500/20">
                   🎥 Oda Oluştur
-                </button>
+                </a>
                 <button className="rounded-2xl border border-white/20 bg-white/5 px-7 py-4 font-bold">
                   👥 Odaya Katıl
                 </button>
@@ -274,9 +274,9 @@ export default function Home() {
             İlk saatin ücretsiz. Sevdiklerini davet et ve birlikte vakit
             geçirmeye başla.
           </p>
-          <button className="mt-7 rounded-2xl bg-gradient-to-r from-pink-500 to-fuchsia-600 px-8 py-4 font-bold shadow-xl shadow-pink-500/20">
+          <a href="/oda-olustur" className="mt-7 inline-block rounded-2xl bg-gradient-to-r from-pink-500 to-fuchsia-600 px-8 py-4 font-bold shadow-xl shadow-pink-500/20">
             Ücretsiz Oda Oluştur
-          </button>
+          </a>
         </div>
       </section>
 
