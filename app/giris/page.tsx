@@ -46,6 +46,7 @@ export default function GirisPage() {
     setYukleniyor(false);
   }
 
+
   return (
     <main className="min-h-screen bg-[#08080c] text-white flex items-center justify-center px-6 py-12">
       <div className="w-full max-w-md">
@@ -120,12 +121,6 @@ export default function GirisPage() {
                 : "Giriş Yap"}
             </button>
           </form>
-
-          <div className="my-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-white/10" />
-            <span className="text-xs text-gray-500">VEYA</span>
-            <div className="h-px flex-1 bg-white/10" />
-          </div>
 
           <button
             type="button"

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 
 export default function HesapMenu() {
   const [email, setEmail] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [acik, setAcik] = useState(false);
 
   useEffect(() => {
@@ -12,12 +13,14 @@ export default function HesapMenu() {
 
     supabase.auth.getUser().then(({ data }) => {
       setEmail(data.user?.email ?? null);
+      setAvatarUrl(data.user?.user_metadata?.avatar_url ?? null);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setEmail(session?.user?.email ?? null);
+      setAvatarUrl(session?.user?.user_metadata?.avatar_url ?? null);
     });
 
     return () => subscription.unsubscribe();
@@ -49,14 +52,24 @@ export default function HesapMenu() {
     );
   }
 
+  const harf = email.charAt(0).toUpperCase();
+
   return (
     <div className="relative">
       <button
         onClick={() => setAcik(!acik)}
         className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 transition hover:bg-white/10"
       >
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 to-fuchsia-600 text-sm font-bold">
-          {email.charAt(0).toUpperCase()}
+        <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-pink-500 to-fuchsia-600 text-sm font-bold">
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt="Profil"
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            harf
+          )}
         </span>
 
         <span className="hidden max-w-[140px] truncate text-sm font-medium sm:block">
