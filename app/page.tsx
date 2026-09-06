@@ -131,9 +131,9 @@ export default function Home() {
                 <a href="/oda-olustur" className="rounded-2xl bg-gradient-to-r from-pink-500 to-fuchsia-600 px-7 py-4 font-bold shadow-xl shadow-pink-500/20">
                   🎥 Oda Oluştur
                 </a>
-                <button className="rounded-2xl border border-white/20 bg-white/5 px-7 py-4 font-bold">
+                <a href="/oda-katil" className="rounded-2xl border border-white/20 bg-white/5 px-7 py-4 font-bold">
                   👥 Odaya Katıl
-                </button>
+                </a>
               </div>
 
               <div className="mt-7 flex items-center gap-3 text-sm text-white/50">
