@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function OdaKatilPage() {
@@ -9,6 +9,16 @@ export default function OdaKatilPage() {
   const [link, setLink] = useState("");
   const [hata, setHata] = useState("");
   const [yukleniyor, setYukleniyor] = useState(false);
+
+  useEffect(() => {
+    const davet = new URLSearchParams(window.location.search).get("davet");
+
+    if (davet) {
+      setLink(
+        `${window.location.origin}/oda-katil?davet=${encodeURIComponent(davet)}`
+      );
+    }
+  }, []);
 
   async function odayaGit(e: React.FormEvent) {
     e.preventDefault();
@@ -26,16 +36,16 @@ export default function OdaKatilPage() {
     try {
       const url = new URL(temizLink);
 
-      if (!url.pathname.startsWith("/oda/")) {
-        setHata("Geçerli bir Roomix oda linki gir.");
+      if (url.pathname !== "/oda-katil") {
+        setHata("Geçerli bir Roomix davet linki gir.");
         setYukleniyor(false);
         return;
       }
 
-      const odaId = url.pathname.split("/oda/")[1]?.split("/")[0];
+      const davetKodu = url.searchParams.get("davet")?.trim();
 
-      if (!odaId) {
-        setHata("Oda bağlantısı geçersiz.");
+      if (!davetKodu) {
+        setHata("Davet kodu bulunamadı.");
         setYukleniyor(false);
         return;
       }
@@ -47,40 +57,26 @@ export default function OdaKatilPage() {
         return;
       }
 
-      const { data: oda, error: odaHatasi } = await supabase
-        .from("rooms")
-        .select("id, is_public")
-        .eq("id", odaId)
-        .single();
+      const { data: odaId, error: katilmaHatasi } = await supabase.rpc(
+        "join_room_by_invite_code",
+        {
+          p_invite_code: davetKodu,
+        }
+      );
 
-      if (odaHatasi || !oda) {
-        setHata("Bu oda bulunamadı.");
-        setYukleniyor(false);
-        return;
-      }
-
-      const { error: uyeHatasi } = await supabase
-        .from("room_members")
-        .upsert(
-          {
-            room_id: oda.id,
-            user_id: userData.user.id,
-          },
-          {
-            onConflict: "room_id,user_id",
-            ignoreDuplicates: true,
-          }
+      if (katilmaHatasi || !odaId) {
+        setHata(
+          katilmaHatasi?.message?.includes("Geçersiz davet kodu")
+            ? "Bu davet linki geçersiz veya süresi dolmuş."
+            : "Odaya katılırken bir hata oluştu. Lütfen tekrar dene."
         );
-
-      if (uyeHatasi) {
-        setHata("Odaya katılırken bir hata oluştu. Lütfen tekrar dene.");
         setYukleniyor(false);
         return;
       }
 
-      window.location.href = `/oda/${oda.id}`;
+      window.location.href = `/oda/${odaId}`;
     } catch {
-      setHata("Geçerli bir oda linki gir.");
+      setHata("Geçerli bir Roomix davet linki gir.");
       setYukleniyor(false);
     }
   }
@@ -119,7 +115,7 @@ export default function OdaKatilPage() {
             type="url"
             value={link}
             onChange={(e) => setLink(e.target.value)}
-            placeholder="http://localhost:3000/oda/..."
+            placeholder="http://localhost:3000/oda-katil?davet=..."
             required
             className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-4 text-white outline-none transition placeholder:text-white/25 focus:border-pink-500"
           />

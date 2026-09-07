@@ -8,6 +8,7 @@ type Room = {
   name: string;
   description: string;
   is_public: boolean;
+  invite_code: string;
 };
 
 type ChatMessage = {
@@ -51,7 +52,7 @@ export default function OdaPage({
 
       const { data: odaData, error: odaHatasi } = await supabase
         .from("rooms")
-        .select("id, name, description, is_public")
+        .select("id, name, description, is_public, invite_code")
         .eq("id", id)
         .single();
 
@@ -107,7 +108,11 @@ export default function OdaPage({
   }, []);
 
   async function davetLinkiniKopyala() {
-    const link = `${window.location.origin}/oda/${oda?.id}`;
+    if (!oda) return;
+
+    const link = `${window.location.origin}/oda-katil?davet=${encodeURIComponent(
+      oda.invite_code
+    )}`;
 
     try {
       await navigator.clipboard.writeText(link);
