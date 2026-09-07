@@ -10,6 +10,14 @@ type Room = {
   is_public: boolean;
 };
 
+type ChatMessage = {
+  id: string;
+  room_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+};
+
 export default function OdaPage({
   params,
 }: {
@@ -18,11 +26,17 @@ export default function OdaPage({
   const supabase = createClient();
 
   const [oda, setOda] = useState<Room | null>(null);
+  const [mesajlar, setMesajlar] = useState<ChatMessage[]>([]);
+  const [yeniMesaj, setYeniMesaj] = useState("");
+  const [kullaniciId, setKullaniciId] = useState("");
   const [yukleniyor, setYukleniyor] = useState(true);
   const [mesaj, setMesaj] = useState("");
   const [kopyalandi, setKopyalandi] = useState(false);
+  const [gonderiliyor, setGonderiliyor] = useState(false);
 
   useEffect(() => {
+    let kanal: ReturnType<typeof supabase.channel> | null = null;
+
     async function yukle() {
       const { id } = await params;
 
@@ -33,32 +47,64 @@ export default function OdaPage({
         return;
       }
 
-      const { data, error } = await supabase
+      setKullaniciId(userData.user.id);
+
+      const { data: odaData, error: odaHatasi } = await supabase
         .from("rooms")
         .select("id, name, description, is_public")
         .eq("id", id)
         .single();
 
-      if (error || !data) {
+      if (odaHatasi || !odaData) {
         setMesaj("Oda bulunamadı veya bu odaya erişimin yok.");
         setYukleniyor(false);
         return;
       }
 
-      setOda(data);
+      setOda(odaData);
+
+      const { data: eskiMesajlar } = await supabase
+        .from("messages")
+        .select("id, room_id, user_id, content, created_at")
+        .eq("room_id", id)
+        .order("created_at", { ascending: true });
+
+      setMesajlar(eskiMesajlar ?? []);
       setYukleniyor(false);
+
+      kanal = supabase
+        .channel(`oda-chat-${id}-${Date.now()}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "messages",
+            filter: `room_id=eq.${id}`,
+          },
+          (payload) => {
+            const yeni = payload.new as ChatMessage;
+
+            setMesajlar((mevcut) => {
+              if (mevcut.some((item) => item.id === yeni.id)) {
+                return mevcut;
+              }
+
+              return [...mevcut, yeni];
+            });
+          }
+        )
+        .subscribe();
     }
 
     yukle();
-  }, []);
 
-  if (yukleniyor) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#070914] text-white">
-        <div className="text-white/50">Oda yükleniyor...</div>
-      </main>
-    );
-  }
+    return () => {
+      if (kanal) {
+        supabase.removeChannel(kanal);
+      }
+    };
+  }, []);
 
   async function davetLinkiniKopyala() {
     const link = `${window.location.origin}/oda/${oda?.id}`;
@@ -73,6 +119,41 @@ export default function OdaPage({
     } catch {
       setMesaj("Davet linki kopyalanamadı.");
     }
+  }
+
+  async function mesajGonder(e: React.FormEvent) {
+    e.preventDefault();
+
+    const temizMesaj = yeniMesaj.trim();
+
+    if (!temizMesaj || !oda || !kullaniciId || gonderiliyor) {
+      return;
+    }
+
+    setGonderiliyor(true);
+
+    const { error } = await supabase.from("messages").insert({
+      room_id: oda.id,
+      user_id: kullaniciId,
+      content: temizMesaj,
+    });
+
+    if (error) {
+      setMesaj("Mesaj gönderilemedi. Lütfen tekrar dene.");
+    } else {
+      setYeniMesaj("");
+      setMesaj("");
+    }
+
+    setGonderiliyor(false);
+  }
+
+  if (yukleniyor) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#070914] text-white">
+        <div className="text-white/50">Oda yükleniyor...</div>
+      </main>
+    );
   }
 
   if (!oda) {
@@ -126,7 +207,9 @@ export default function OdaPage({
                   onClick={davetLinkiniKopyala}
                   className="rounded-2xl border border-pink-500/30 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-200 transition hover:bg-pink-500/20"
                 >
-                  {kopyalandi ? "✓ Link Kopyalandı" : "🔗 Davet Linkini Kopyala"}
+                  {kopyalandi
+                    ? "✓ Link Kopyalandı"
+                    : "🔗 Davet Linkini Kopyala"}
                 </button>
 
                 <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center">
@@ -137,17 +220,119 @@ export default function OdaPage({
             </div>
           </div>
 
-          <div className="p-6 sm:p-8">
-            <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-dashed border-white/10 bg-black/20">
-              <div className="text-center">
-                <div className="text-6xl">🎬</div>
-                <h2 className="mt-5 text-2xl font-black">
-                  Roomix odan hazır!
-                </h2>
-                <p className="mt-2 max-w-md text-white/40">
-                  Bir sonraki adımda bu alana sohbet, sesli/görüntülü görüşme
-                  ve birlikte izleme özelliklerini ekleyeceğiz.
-                </p>
+          <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[1.4fr_0.8fr]">
+            <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-black">💬 Oda Sohbeti</h2>
+                  <p className="mt-1 text-xs text-white/35">
+                    Odadaki herkesle konuş.
+                  </p>
+                </div>
+
+                <div className="rounded-full bg-green-500/10 px-3 py-1 text-xs text-green-300">
+                  ● Canlı
+                </div>
+              </div>
+
+              <div className="flex h-[420px] flex-col">
+                <div className="flex-1 space-y-3 overflow-y-auto pr-2">
+                  {mesajlar.length === 0 ? (
+                    <div className="flex h-full items-center justify-center text-center">
+                      <div>
+                        <div className="text-5xl">💬</div>
+                        <p className="mt-3 font-semibold text-white/60">
+                          Henüz mesaj yok.
+                        </p>
+                        <p className="mt-1 text-sm text-white/30">
+                          İlk mesajı sen gönder!
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    mesajlar.map((item) => {
+                      const benim = item.user_id === kullaniciId;
+
+                      return (
+                        <div
+                          key={item.id}
+                          className={`flex ${
+                            benim ? "justify-end" : "justify-start"
+                          }`}
+                        >
+                          <div
+                            className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+                              benim
+                                ? "bg-gradient-to-r from-pink-500 to-fuchsia-600"
+                                : "bg-white/10"
+                            }`}
+                          >
+                            <div className="mb-1 text-[11px] text-white/45">
+                              {benim ? "Sen" : "Oda kullanıcısı"}
+                            </div>
+
+                            <div className="break-words text-sm">
+                              {item.content}
+                            </div>
+
+                            <div className="mt-1 text-[10px] text-white/35">
+                              {new Date(item.created_at).toLocaleTimeString(
+                                "tr-TR",
+                                {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <form
+                  onSubmit={mesajGonder}
+                  className="mt-4 flex gap-2 border-t border-white/10 pt-4"
+                >
+                  <input
+                    type="text"
+                    value={yeniMesaj}
+                    onChange={(e) => setYeniMesaj(e.target.value)}
+                    placeholder="Mesajını yaz..."
+                    maxLength={1000}
+                    className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-pink-500"
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={gonderiliyor || !yeniMesaj.trim()}
+                    className="rounded-2xl bg-gradient-to-r from-pink-500 to-fuchsia-600 px-5 py-3 font-bold transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {gonderiliyor ? "..." : "Gönder"}
+                  </button>
+                </form>
+
+                {mesaj && (
+                  <div className="mt-3 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+                    {mesaj}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-dashed border-white/10 bg-black/20 p-6">
+              <div className="flex min-h-[420px] items-center justify-center">
+                <div className="text-center">
+                  <div className="text-6xl">🎬</div>
+                  <h2 className="mt-5 text-2xl font-black">
+                    Birlikte izleme
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-white/40">
+                    Bir sonraki adımda buraya içerik ekleme, oynatma ve
+                    senkronizasyon özelliklerini bağlayacağız.
+                  </p>
+                </div>
               </div>
             </div>
           </div>

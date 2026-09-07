@@ -25,7 +25,7 @@ export default function OdaOlusturPage() {
       return;
     }
 
-    const davetKodu = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+    const davetKodu = Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-6);
 
     const { data, error } = await supabase
       .from("rooms")

@@ -1,19 +1,25 @@
 "use client";
 
 import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 export default function OdaKatilPage() {
+  const supabase = createClient();
+
   const [link, setLink] = useState("");
   const [hata, setHata] = useState("");
+  const [yukleniyor, setYukleniyor] = useState(false);
 
-  function odayaGit(e: React.FormEvent) {
+  async function odayaGit(e: React.FormEvent) {
     e.preventDefault();
     setHata("");
+    setYukleniyor(true);
 
     const temizLink = link.trim();
 
     if (!temizLink) {
       setHata("Lütfen oda davet linkini gir.");
+      setYukleniyor(false);
       return;
     }
 
@@ -22,12 +28,60 @@ export default function OdaKatilPage() {
 
       if (!url.pathname.startsWith("/oda/")) {
         setHata("Geçerli bir Roomix oda linki gir.");
+        setYukleniyor(false);
         return;
       }
 
-      window.location.href = url.pathname;
+      const odaId = url.pathname.split("/oda/")[1]?.split("/")[0];
+
+      if (!odaId) {
+        setHata("Oda bağlantısı geçersiz.");
+        setYukleniyor(false);
+        return;
+      }
+
+      const { data: userData } = await supabase.auth.getUser();
+
+      if (!userData.user) {
+        window.location.href = "/giris";
+        return;
+      }
+
+      const { data: oda, error: odaHatasi } = await supabase
+        .from("rooms")
+        .select("id, is_public")
+        .eq("id", odaId)
+        .single();
+
+      if (odaHatasi || !oda) {
+        setHata("Bu oda bulunamadı.");
+        setYukleniyor(false);
+        return;
+      }
+
+      const { error: uyeHatasi } = await supabase
+        .from("room_members")
+        .upsert(
+          {
+            room_id: oda.id,
+            user_id: userData.user.id,
+          },
+          {
+            onConflict: "room_id,user_id",
+            ignoreDuplicates: true,
+          }
+        );
+
+      if (uyeHatasi) {
+        setHata("Odaya katılırken bir hata oluştu. Lütfen tekrar dene.");
+        setYukleniyor(false);
+        return;
+      }
+
+      window.location.href = `/oda/${oda.id}`;
     } catch {
       setHata("Geçerli bir oda linki gir.");
+      setYukleniyor(false);
     }
   }
 
@@ -78,9 +132,10 @@ export default function OdaKatilPage() {
 
           <button
             type="submit"
-            className="mt-6 w-full rounded-2xl bg-gradient-to-r from-pink-500 to-fuchsia-600 px-6 py-4 font-bold shadow-xl shadow-pink-500/20 transition hover:opacity-90"
+            disabled={yukleniyor}
+            className="mt-6 w-full rounded-2xl bg-gradient-to-r from-pink-500 to-fuchsia-600 px-6 py-4 font-bold shadow-xl shadow-pink-500/20 transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            👥 Odaya Katıl
+            {yukleniyor ? "Odaya katılınıyor..." : "👥 Odaya Katıl"}
           </button>
         </form>
       </div>
