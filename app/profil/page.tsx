@@ -24,8 +24,27 @@ export default function ProfilPage() {
       }
 
       setEmail(data.user.email ?? "");
-      setIsim(data.user.user_metadata?.display_name ?? data.user.user_metadata?.full_name ?? data.user.user_metadata?.name ?? "");
-      setAvatarUrl(data.user.user_metadata?.avatar_url ?? "");
+
+      const { data: profilData } = await supabase
+        .from("profiles")
+        .select("display_name, avatar_url")
+        .eq("id", data.user.id)
+        .maybeSingle();
+
+      setIsim(
+        profilData?.display_name ??
+          data.user.user_metadata?.display_name ??
+          data.user.user_metadata?.full_name ??
+          data.user.user_metadata?.name ??
+          ""
+      );
+
+      setAvatarUrl(
+        profilData?.avatar_url ??
+          data.user.user_metadata?.avatar_url ??
+          ""
+      );
+
       setYukleniyor(false);
     }
 
@@ -36,15 +55,45 @@ export default function ProfilPage() {
     setKaydediliyor(true);
     setMesaj("");
 
-    const { error } = await supabase.auth.updateUser({
+    const temizIsim = isim.trim();
+
+    const { error: authHatasi } = await supabase.auth.updateUser({
       data: {
-        display_name: isim.trim(),
+        display_name: temizIsim,
         avatar_url: avatarUrl,
       },
     });
 
-    if (error) {
+    if (authHatasi) {
       setMesaj("Profil güncellenirken bir hata oluştu.");
+      setKaydediliyor(false);
+      return;
+    }
+
+    const { data: userData } = await supabase.auth.getUser();
+
+    if (!userData.user) {
+      setMesaj("Oturum bulunamadı. Lütfen tekrar giriş yap.");
+      setKaydediliyor(false);
+      return;
+    }
+
+    const { error: profilHatasi } = await supabase
+      .from("profiles")
+      .upsert(
+        {
+          id: userData.user.id,
+          display_name: temizIsim,
+          avatar_url: avatarUrl,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "id",
+        }
+      );
+
+    if (profilHatasi) {
+      setMesaj("Profil adı kaydedildi fakat profil tablosu güncellenemedi.");
     } else {
       setMesaj("Profil bilgilerin kaydedildi. ✓");
     }
@@ -111,6 +160,31 @@ export default function ProfilPage() {
 
     if (profilHatasi) {
       setMesaj("Fotoğraf yüklendi fakat profil güncellenemedi.");
+      setFotoYukleniyor(false);
+      e.target.value = "";
+      return;
+    }
+
+    const { error: tabloHatasi } = await supabase
+      .from("profiles")
+      .upsert(
+        {
+          id: userId,
+          display_name:
+            userData.user.user_metadata?.display_name ??
+            userData.user.user_metadata?.full_name ??
+            userData.user.user_metadata?.name ??
+            "",
+          avatar_url: yeniAvatarUrl,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "id",
+        }
+      );
+
+    if (tabloHatasi) {
+      setMesaj("Fotoğraf yüklendi fakat profil tablosu güncellenemedi.");
     } else {
       setAvatarUrl(yeniAvatarUrl);
       setMesaj("Profil fotoğrafın güncellendi. ✓");
